@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 	struct sockaddr_in sockaddr;
 	socklen_t		len;
 	
-	if (serverfd = socket(AF_INET, SOCK_STREAM, 0) == -1)
+	if ((serverfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 		err(NULL);
 	maxfd = serverfd;
 
@@ -91,9 +91,9 @@ int main(int argc, char** argv)
 						continue;
 					if (clientfd > maxfd)
 						maxfd = clientfd;
-					clients[fd].id = gid++;
+					clients[clientfd].id = gid++;
 					FD_SET(clientfd, &curr_set);
-					sprintf(send_buffer, "Client %d is connected", clients[fd].id);
+					sprintf(send_buffer, "server: client %d just arrived\n", clients[clientfd].id);
 					send_to_all(clientfd);
 				}
 				else
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 					int ret = recv(fd, recv_buffer, sizeof(recv_buffer), 0);
 					if (ret <= 0)
 					{	
-						sprintf(send_buffer, "Client %d has left", clients[fd].id);
+						sprintf(send_buffer, "server: client %d just left\n", clients[fd].id);
 						send_to_all(fd);
 						FD_CLR(fd, &curr_set);
 						close(fd);
