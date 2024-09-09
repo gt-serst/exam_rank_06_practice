@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	serveraddr.sin_family = AF_INET;
 	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	serveraddr.sin_port = htons(atoi(argv[1]));
-	if (bind(serverfd, (const struct sockaddr*)& serveraddr, sizeof(serveraddr)) == -1 || listen(serverfd, 100) == -1)
+	if (bind(serverfd, (const struct sockaddr *)& serveraddr, sizeof(serveraddr)) == -1 || listen(serverfd, 100) == -1)
 		err(NULL);
 	while(1)
 	{
