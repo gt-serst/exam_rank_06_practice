@@ -62,9 +62,57 @@ int main(int argc, char** argv)
 	FD_SET(serverfd, curr_set);
 	bzero(sockaddr, sizeof(sockaddr));
 
+	if (bind(serverfd, (const struct sockaddr *)& sockaddr, sizeof(sockaddr)) == -1 || listen(serverfd, 100) == -1)
+	err(NULL);
+
 	while (1)
 	{
-
+		if (select(maxfd + 1, read_set, write_set, 0, 0) == -1)
+			continue;
+		for (int fd = 0; fd <= maxfd; fd++)
+		{
+			if (FD_ISSET(fd, read_set))
+			{
+				if (fd == serverfd)
+				{
+					
+					if (fd = accept(serverfd, (struct sockaddr *)& sockaddr, &len) == -1)
+						continue;
+					sprintf(send_buffer, "Client %d is connected", clients[fd].id);
+					send_to_all(fd);
+					FD_SET(fd, curr_set);
+				}
+				else
+				{
+					if (FD_ISSET(fd, read_set))
+					{
+						int ret = recv(fd, recv_buffer, sizeof(recv_buffer));
+						if (ret <= 0)
+						{	
+							sprintf(send_buffer, "Client %d has left", clients[fd].id);
+							send_to_all(fd);
+							FD_CLEAR(fd);
+							close(fd);
+							bzero(clients[fd].msg, sizeof(clients[fd].msg));
+						}
+					}
+					else
+					{
+						for (i = 0, j = strlen(clients[fd].msg); i < ret; i++, j++)
+						{
+							clients[fd].msg[i] = recv_buffer[j];
+							if (send_buffer[i] == '\n')
+							{
+								sprintf(send_buffer, "Client %d: %s", clients[fd].id, clients[fd].msg);
+								send_to_all(fd);
+								j = -1;
+							}
+						}
+					}
+				}
+			}
+		}
+		break;
 	}	
 	return (0);
 }
