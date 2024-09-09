@@ -13,6 +13,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <arpa/inet.h>
 
 typedef struct s_struct
 {
@@ -28,7 +32,7 @@ char recv_buffer[300000], send_buffer[300000];
 void	err(char *msg)
 {
 	if (msg)
-		write(2, msg, strlen(msg);
+		write(2, msg, strlen(msg));
 	else
 		write(2, "Fatal error", 11);
 	write(2, "\n", 1);
@@ -37,9 +41,9 @@ void	err(char *msg)
 
 void	send_to_all(int except)
 {
-	for (int fd = 0; fd <= maxfd, fd++)
+	for (int fd = 0; fd <= maxfd; fd++)
 	{
-		if (FD_ISSET(fd, write_set) && fd != except)
+		if (FD_ISSET(fd, &write_set) && fd != except)
 		{
 			if (send(fd, send_buffer, strlen(send_buffer), 0) == -1)
 		   		err(NULL);	
@@ -49,70 +53,79 @@ void	send_to_all(int except)
 
 int main(int argc, char** argv)
 {
-	int			serverfd;
-	sockaddr_in sockaddr;
-	socklen		len;
-
 	if (argc != 2)
 		err("Wrong number of arguments");
+	
+	int			serverfd;
+	struct sockaddr_in sockaddr;
+	socklen_t		len;
+	
 	if (serverfd = socket(AF_INET, SOCK_STREAM, 0) == -1)
 		err(NULL);
+	maxfd = serverfd;
 
-	FD_CLEAR(curr_set);
-	FD_SET(serverfd, curr_set);
-	bzero(sockaddr, sizeof(sockaddr));
+	FD_ZERO(&curr_set);
+	FD_SET(serverfd, &curr_set);
+	bzero(clients, sizeof(clients));
+	bzero(&sockaddr, sizeof(sockaddr));
 
+	sockaddr.sin_family = AF_INET;
+	sockaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	sockaddr.sin_port = htons(atoi(argv[1]));
 	if (bind(serverfd, (const struct sockaddr *)& sockaddr, sizeof(sockaddr)) == -1 || listen(serverfd, 100) == -1)
 	err(NULL);
 
 	while (1)
 	{
-		if (select(maxfd + 1, read_set, write_set, 0, 0) == -1)
+		read_set = write_set = curr_set;
+		if (select(maxfd + 1, &read_set, &write_set, 0, 0) == -1)
 			continue;
 		for (int fd = 0; fd <= maxfd; fd++)
 		{
-			if (FD_ISSET(fd, read_set))
+			if (FD_ISSET(fd, &read_set))
 			{
 				if (fd == serverfd)
 				{
-					
-					if (fd = accept(serverfd, (struct sockaddr *)& sockaddr, &len) == -1)
+					int clientfd = accept(serverfd, (struct sockaddr *)& sockaddr, &len);
+					if (clientfd == -1)
 						continue;
+					if (clientfd > maxfd)
+						maxfd = clientfd;
+					clients[fd].id = gid++;
+					FD_SET(clientfd, &curr_set);
 					sprintf(send_buffer, "Client %d is connected", clients[fd].id);
-					send_to_all(fd);
-					FD_SET(fd, curr_set);
+					send_to_all(clientfd);
 				}
 				else
 				{
-					if (FD_ISSET(fd, read_set))
-					{
-						int ret = recv(fd, recv_buffer, sizeof(recv_buffer));
-						if (ret <= 0)
-						{	
-							sprintf(send_buffer, "Client %d has left", clients[fd].id);
-							send_to_all(fd);
-							FD_CLEAR(fd);
-							close(fd);
-							bzero(clients[fd].msg, sizeof(clients[fd].msg));
-						}
+					int ret = recv(fd, recv_buffer, sizeof(recv_buffer), 0);
+					if (ret <= 0)
+					{	
+						sprintf(send_buffer, "Client %d has left", clients[fd].id);
+						send_to_all(fd);
+						FD_CLR(fd, &curr_set);
+						close(fd);
+						bzero(clients[fd].msg, sizeof(clients[fd].msg));
 					}
 					else
 					{
-						for (i = 0, j = strlen(clients[fd].msg); i < ret; i++, j++)
+						for (int i = 0, j = strlen(clients[fd].msg); i < ret; i++, j++)
 						{
-							clients[fd].msg[i] = recv_buffer[j];
-							if (send_buffer[i] == '\n')
+							clients[fd].msg[j] = recv_buffer[i];
+							if (clients[fd].msg[j] == '\n')
 							{
-								sprintf(send_buffer, "Client %d: %s", clients[fd].id, clients[fd].msg);
+								clients[fd].msg[j] = '\0';
+								sprintf(send_buffer, "client %d: %s\n", clients[fd].id, clients[fd].msg);
+								bzero(clients[fd].msg, strlen(clients[fd].msg));
 								send_to_all(fd);
 								j = -1;
 							}
 						}
 					}
 				}
+				break;
 			}
 		}
-		break;
 	}	
 	return (0);
 }
